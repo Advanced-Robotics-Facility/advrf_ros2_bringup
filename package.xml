@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>advrf_ros2_bringup</name>
+  <version>0.1.0</version>
+  <description>Shared ROS 2 launch composition for ADVRF robots.</description>
+  
+  <maintainer email="hpousseur@iit.it">Hugo Pousseur</maintainer>
+  <maintainer email="manuel.delucchi@iit.it">Manuel Delucchi</maintainer>
+
+  <license>TODO</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>advrf_ros2_motors_controller</exec_depend>
+  <exec_depend>advrf_ros2_io</exec_depend>
+  <exec_depend>advrf_ros2_ecat</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>rmw_cyclonedds_cpp</exec_depend>
+  <exec_depend>graphviz</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>joy</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>rqt_gui</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+  
+</package>

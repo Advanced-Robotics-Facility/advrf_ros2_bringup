@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Export a ROS 2 graph with topics, services and grouped actions to DOT/SVG/JSON."""
+import argparse
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
+
+PARAMETERS = {'describe_parameters', 'get_parameter_types', 'get_parameters',
+              'list_parameters', 'set_parameters', 'set_parameters_atomically',
+              'get_type_description'}
+ROLES = {'publish': 'topic', 'subscribe': 'topic', 'serve': 'service',
+         'call': 'service', 'action_server': 'action', 'action_client': 'action'}
+COLORS = {'topic': '#dbeafe', 'service': '#fef3c7', 'action': '#dcfce7'}
+
+
+def within(name, namespace):
+    return namespace == '/' or name == namespace or name.startswith(namespace + '/')
+
+
+def visible(name, kind, include_system=False):
+    if '/_action/' in name:  # Represent the entire action once.
+        return False
+    if include_system:
+        return True
+    if any(part.startswith('_') for part in name.split('/') if part):
+        return False
+    if kind == 'service' and name.rsplit('/', 1)[-1] in PARAMETERS:
+        return False
+    return name not in {'/rosout', '/parameter_events'}
+
+
+def select(records, namespaces, strict=False):
+    selected_nodes = {r['node'] for r in records
+                      if any(within(r['node'], ns) for ns in namespaces)}
+    interfaces = {(r['kind'], r['name']) for r in records
+                  if r['node'] in selected_nodes}
+    return [r for r in records if (r['kind'], r['name']) in interfaces
+            and (not strict or r['node'] in selected_nodes)]
+
+
+def collect(node, include_system):
+    from rclpy.action.graph import (get_action_client_names_and_types_by_node,
+                                   get_action_server_names_and_types_by_node)
+    queries = {
+        'publish': node.get_publisher_names_and_types_by_node,
+        'subscribe': node.get_subscriber_names_and_types_by_node,
+        'serve': node.get_service_names_and_types_by_node,
+        'call': node.get_client_names_and_types_by_node,
+        'action_server': lambda n, ns: get_action_server_names_and_types_by_node(node, n, ns),
+        'action_client': lambda n, ns: get_action_client_names_and_types_by_node(node, n, ns),
+    }
+    records = []
+    for name, namespace in sorted(set(node.get_node_names_and_namespaces())):
+        if name == node.get_name() and namespace == node.get_namespace():
+            continue
+        full = namespace.rstrip('/') + '/' + name
+        if not include_system and name.startswith('_'):
+            continue
+        for role, query in queries.items():
+            try:
+                endpoints = query(name, namespace)
+            except Exception as exc:
+                print(f'Warning: {full} ({role}): {exc}', file=sys.stderr)
+                continue
+            for endpoint, types in endpoints:
+                if visible(endpoint, ROLES[role], include_system):
+                    records.append(dict(node=full, name=endpoint, kind=ROLES[role],
+                                        role=role, types=sorted(types)))
+    return records
+
+
+def dot_graph(records, show_types=False):
+    quote = json.dumps
+    nodes = sorted({r['node'] for r in records})
+    interfaces = sorted({(r['kind'], r['name']) for r in records})
+    node_ids = {name: f'n{i}' for i, name in enumerate(nodes)}
+    endpoint_ids = {key: f'e{i}' for i, key in enumerate(interfaces)}
+    lines = ['digraph ROS {', 'graph [rankdir=LR, compound=true, bgcolor="white",',
+             'label="ROS 2 — blue: topics | yellow: services | green: actions", labelloc=t];',
+             'node [fontname="sans-serif", fontsize=10, style=filled];',
+             'edge [fontname="sans-serif", fontsize=9, color="#64748b"];']
+    groups = {}
+    for name in nodes:
+        namespace = name.rsplit('/', 1)[0] or '/'
+        groups.setdefault(namespace, []).append(name)
+    for i, (namespace, names) in enumerate(sorted(groups.items())):
+        lines.append(f'subgraph cluster_{i} {{ label={quote(namespace)}; color="#cbd5e1";')
+        for name in names:
+            lines.append(f'{node_ids[name]} [label={quote(name.rsplit("/", 1)[-1])}, '
+                         f'tooltip={quote(name)}, shape=box, fillcolor="#f1f5f9"];')
+        lines.append('}')
+    for kind, name in interfaces:
+        types = sorted({t for r in records if r['kind'] == kind and r['name'] == name
+                        for t in r['types']})
+        label = name + ('\n' + '\n'.join(types) if show_types else '')
+        shape = {'topic': 'ellipse', 'service': 'hexagon', 'action': 'box3d'}[kind]
+        lines.append(f'{endpoint_ids[kind, name]} [label={quote(label)}, shape={shape}, '
+                     f'fillcolor={quote(COLORS[kind])}, tooltip={quote(chr(10).join(types))}];')
+    edges = set()
+    for r in records:
+        n, e = node_ids[r['node']], endpoint_ids[r['kind'], r['name']]
+        if r['role'] in {'publish', 'call', 'action_client'}:
+            source, target = n, e
+        else:
+            source, target = e, n
+        edges.add(f'{source} -> {target} [label={quote(r["role"].replace("_", " "))}];')
+    lines.extend(sorted(edges))
+    lines.append('}')
+    return '\n'.join(lines) + '\n'
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-n', '--namespace', action='append',
+                        help='Node namespace, repeatable; default: /advrf/miranda. Use / for everything.')
+    parser.add_argument('--strict', action='store_true', help='Exclude connected nodes outside selected namespaces')
+    parser.add_argument('--include-system', action='store_true', help='Include parameter services and system interfaces')
+    parser.add_argument('--types', action='store_true', help='Show interface types on the diagram (always included in JSON)')
+    parser.add_argument('--wait', type=float, default=3.0, help='Discovery time in seconds (default: 3)')
+    parser.add_argument('-o', '--output', default='ros_graph', help='Output path stem (default: ./ros_graph)')
+    parser.add_argument('--rmw', default='rmw_cyclonedds_cpp', help='Middleware (default: rmw_cyclonedds_cpp)')
+    args = parser.parse_args()
+    if args.wait < 0:
+        parser.error('--wait must be nonnegative')
+    os.environ['RMW_IMPLEMENTATION'] = args.rmw
+    import rclpy
+    namespaces = ['/' + ns.strip('/') if ns.strip('/') else '/'
+                  for ns in (args.namespace or ['/advrf/miranda'])]
+    rclpy.init(args=[])
+    node = rclpy.create_node('_ros_graph_inspector', enable_rosout=False,
+                             start_parameter_services=False)
+    try:
+        end = time.monotonic() + args.wait
+        while time.monotonic() < end:
+            rclpy.spin_once(node, timeout_sec=min(0.1, max(0, end - time.monotonic())))
+        records = select(collect(node, args.include_system), namespaces, args.strict)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+    output = Path(args.output).expanduser()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    dot_path = Path(str(output) + '.dot')
+    json_path = Path(str(output) + '.json')
+    dot_path.write_text(dot_graph(records, args.types))
+    json_path.write_text(json.dumps({'namespaces': namespaces, 'rmw': args.rmw,
+                                    'domain_id': os.environ.get('ROS_DOMAIN_ID', '0'),
+                                    'endpoints': records}, indent=2) + '\n')
+    print(f'{len(set(r["node"] for r in records))} nodes, '
+          f'{len(set((r["kind"], r["name"]) for r in records))} interfaces')
+    print(dot_path.resolve())
+    print(json_path.resolve())
+    if shutil.which('dot'):
+        svg_path = Path(str(output) + '.svg')
+        subprocess.run(['dot', '-Tsvg', str(dot_path), '-o', str(svg_path)], check=True)
+        print(svg_path.resolve())
+    else:
+        print('Graphviz absent: install graphviz to render SVG; DOT and JSON exported.', file=sys.stderr)
+    if not records:
+        print('No endpoints found: check namespace, ROS_DOMAIN_ID, middleware and discovery time.', file=sys.stderr)
+
+
+if __name__ == '__main__':
+    main()
