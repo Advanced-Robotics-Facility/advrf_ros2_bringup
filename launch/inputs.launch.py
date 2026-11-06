@@ -44,7 +44,7 @@ def setup(context):
             Node(package='advrf_ros2_io', executable='joystick_input_node',
                  namespace=namespace, output='screen',
                  parameters=[joystick],
-                 remappings=[('ecat/set_active', transport.rstrip('/') + '/set_active'),
+                 remappings=[('ecat/set_active_tx', transport.rstrip('/') + '/set_active_tx'),
                              ('ecat/active', transport.rstrip('/') + '/active')]),
             Node(package='advrf_ros2_io', executable='manual_joint_controller_node',
                  namespace=namespace, output='screen', parameters=[manual],

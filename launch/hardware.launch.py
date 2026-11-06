@@ -14,11 +14,11 @@ def setup(context):
     if not context.environment.get('EC_CFG', ''):
         get_logger('advrf_ros2_bringup').warning('EC_CFG not set')
     parameters = [str(config)]
-    automatic = LaunchConfiguration('active_on_first_msg', default='').perform(context)
+    automatic = LaunchConfiguration('active_tx_on_first_msg', default='').perform(context)
     if automatic:
         if automatic not in ('true', 'false'):
-            raise ValueError('active_on_first_msg must be true or false')
-        parameters.append({'active_on_first_msg': automatic == 'true'})
+            raise ValueError('active_tx_on_first_msg must be true or false')
+        parameters.append({'active_tx_on_first_msg': automatic == 'true'})
     return [Node(package='advrf_ros2_ecat', executable='bridge_ecat_client_node',
                  namespace=transport, output='screen', parameters=parameters)]
 
@@ -26,7 +26,7 @@ def setup(context):
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('config_dir', description='Robot resource directory containing config/advrf_bridge.yaml'),
-        DeclareLaunchArgument('active_on_first_msg', default_value='', choices=['', 'true', 'false'],
+        DeclareLaunchArgument('active_tx_on_first_msg', default_value='', choices=['', 'true', 'false'],
                               description='Override the bridge automatic TX activation parameter'),
         DeclareLaunchArgument('namespace', default_value='/advrf/robot'),
         DeclareLaunchArgument('ecat_namespace', default_value=''),

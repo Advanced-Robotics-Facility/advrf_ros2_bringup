@@ -88,12 +88,12 @@ class CompositionTest(unittest.TestCase):
         launch = module('hardware')
         self.context.environment['EC_CFG'] = '/chosen/ec_cfg.yaml'
         for value in ('true', 'false'):
-            self.context.launch_configurations['active_on_first_msg'] = value
+            self.context.launch_configurations['active_tx_on_first_msg'] = value
             with patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs):
                 node, = launch.setup(self.context)
-            self.assertEqual(node['parameters'][-1], {'active_on_first_msg': value == 'true'})
-        self.context.launch_configurations['active_on_first_msg'] = 'invalid'
-        with self.assertRaisesRegex(ValueError, 'active_on_first_msg'):
+            self.assertEqual(node['parameters'][-1], {'active_tx_on_first_msg': value == 'true'})
+        self.context.launch_configurations['active_tx_on_first_msg'] = 'invalid'
+        with self.assertRaisesRegex(ValueError, 'active_tx_on_first_msg'):
             launch.setup(self.context)
 
     def test_hardware_warns_without_ec_cfg(self):
