@@ -43,7 +43,7 @@ ros2 launch advrf_ros2_bringup controllers.launch.py \
 Keep your existing `EC_CFG` export and select a Miranda hardware profile at bridge startup:
 
 ```bash
-ros2 launch advrf_ros2_miranda_bringup bridge.launch.py motor_start_mode:=position
+ros2 launch advrf_ros2_miranda_bringup bridge.launch.py control_mode:=position
 # Also supported: impedance, idle
 ```
 
@@ -52,7 +52,7 @@ The profile files are resolved relative to the robot control YAML referenced by
 `motor/miranda_idle.yaml`. A missing profile fails before starting the bridge.
 
 For another profile, pass `motor_start_config:=/absolute/path/to/motor.yaml`
-(instead of `motor_start_mode`). The shared `hardware.launch.py` also accepts
+(instead of `control_mode`). The shared `hardware.launch.py` also accepts
 `motor_start_config`; relative paths refer to the original robot control YAML directory.
 
 Only the bridge process receives a temporary `EC_CFG`. Source files and the shell
@@ -62,9 +62,25 @@ are removed on launch shutdown. Without either argument, the original `EC_CFG`
 is used directly.
 
 This selects the hardware START mode and gains when the bridge starts. It does
-not switch running motors or change the separate ROS controller `control_mode`.
-Set that controller profile consistently when launching controllers separately.
-The named mode argument is exposed by Miranda `bridge.launch.py`.
+not switch running motors. When launching controllers separately, select the
+same `control_mode` for their ROS profile.
+The shared `hardware.launch.py` resolves `control_mode` using the
+`motor_start_profiles` mapping in the bridge YAML's `ros__parameters` block.
+Robot wrappers only forward the argument. `robot.launch.py` forwards the same
+explicit mode to controllers and the bridge; Miranda MoveIt does so as well.
+Miranda gravity compensation selects `impedance` for its optional bridge.
+
+```yaml
+/**/bridge_ecat_client_node:
+  ros__parameters:
+    motor_start_profiles:
+      position: motor/miranda_pos_3b.yaml
+      impedance: motor/miranda_imp_d4.yaml
+      idle: motor/miranda_idle.yaml
+```
+
+Unknown modes and combining `control_mode` with `motor_start_config` fail before
+starting the bridge. Empty `control_mode` keeps the original EtherCAT profile.
 
 ## Nodes Details
 

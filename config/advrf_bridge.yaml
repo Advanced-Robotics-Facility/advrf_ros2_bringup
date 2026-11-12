@@ -1,6 +1,10 @@
 # ROS bridge startup parameters. EtherCAT client settings are supplied via EC_CFG.
 /**/bridge_ecat_client_node:
   ros__parameters:
+    # Optional launch mapping: adapt paths to the robot control directory.
+    # motor_start_profiles:
+    #   position: motor/position.yaml
+    #   impedance: motor/impedance.yaml
     period_ms: 4
     active_tx_on_first_msg: false
     command_timeout_ms: 500

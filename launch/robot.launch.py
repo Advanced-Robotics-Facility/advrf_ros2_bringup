@@ -34,7 +34,7 @@ def generate_launch_description():
         DeclareLaunchArgument('rviz_config', default_value='', description='Empty uses RViz defaults'),
         include('controllers.launch.py', robot_arguments),
         include('inputs.launch.py', (*robot_arguments, 'joint_control_config', 'use_panel', 'use_joy')),
-        include('hardware.launch.py', ('bridge_config', 'namespace', 'active_tx_on_first_msg'),
+        include('hardware.launch.py', ('bridge_config', 'namespace', 'active_tx_on_first_msg', 'control_mode'),
                 IfCondition(LaunchConfiguration('start_bridge'))),
         include('visualization.launch.py', ('namespace', 'robot_description_file',
                                             'use_rviz', 'rviz_config')),

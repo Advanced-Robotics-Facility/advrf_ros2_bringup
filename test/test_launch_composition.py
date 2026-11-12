@@ -123,6 +123,12 @@ class CompositionTest(unittest.TestCase):
         self.assertNotIn('additional_env', node)
 
     def test_hardware_motor_profile_override(self):
+        self.check_motor_profile_override(named_mode=False)
+
+    def test_hardware_control_mode_selects_motor_profile(self):
+        self.check_motor_profile_override(named_mode=True)
+
+    def check_motor_profile_override(self, named_mode):
         launch = module('hardware')
         control_dir = self.root / 'robot_control'
         control_dir.mkdir()
@@ -139,7 +145,18 @@ class CompositionTest(unittest.TestCase):
         source.write_text(yaml.safe_dump(original))
         before = {p: p.read_bytes() for p in self.root.rglob('*.yaml')}
         self.context.environment.update(EC_CFG=str(source), PROFILE_ROOT=str(self.root))
-        self.context.launch_configurations['motor_start_config'] = 'position.yaml'
+        if named_mode:
+            bridge_config = self.root / 'named_bridge.yaml'
+            bridge_config.write_text(yaml.safe_dump({
+                '/**/bridge_ecat_client_node': {'ros__parameters': {
+                    'motor_start_profiles': {'position': 'position.yaml'},
+                }},
+            }))
+            self.context.launch_configurations.update(
+                bridge_config=str(bridge_config), control_mode='position', motor_start_config=''
+            )
+        else:
+            self.context.launch_configurations['motor_start_config'] = 'position.yaml'
         with patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs), \
                 patch.object(launch, 'OnShutdown', side_effect=lambda **kwargs: kwargs), \
                 patch.object(launch, 'RegisterEventHandler', side_effect=lambda handler: handler):
@@ -161,6 +178,22 @@ class CompositionTest(unittest.TestCase):
             for action in cleanup['on_shutdown']:
                 action.execute(self.context)
         self.assertFalse(target.exists())
+
+    def test_hardware_rejects_conflicting_mode_and_profile(self):
+        self.context.launch_configurations.update(
+            control_mode='position', motor_start_config='/profile.yaml'
+        )
+        with self.assertRaisesRegex(ValueError, 'Choose control_mode or motor_start_config'):
+            module('hardware').setup(self.context)
+
+    def test_hardware_rejects_unknown_mode(self):
+        bridge_config = self.root / 'bridge.yaml'
+        bridge_config.write_text('{}')
+        self.context.launch_configurations.update(
+            bridge_config=str(bridge_config), control_mode='unknown'
+        )
+        with self.assertRaisesRegex(ValueError, 'No motor_start_profiles entry'):
+            module('hardware').setup(self.context)
 
     def test_hardware_override_requires_environment(self):
         self.context.environment.clear()
