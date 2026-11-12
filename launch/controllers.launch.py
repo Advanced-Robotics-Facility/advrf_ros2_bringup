@@ -15,8 +15,9 @@ def setup(context):
         return LaunchConfiguration(name).perform(context)
 
     namespace = arg('namespace')
-    transport = arg('ecat_namespace') or namespace.rstrip('/') + '/ecat'
-    robot = load_robot(arg('config_dir'), namespace, arg('robot_description_file'), arg('control_mode'))
+    transport = namespace.rstrip('/') + '/ecat'
+    robot = load_robot(arg('robot_config'), namespace, arg('robot_description_file'), arg('control_mode'),
+                       controller_config=arg('controller_config'), controllers_config=arg('controllers_config'))
     # All public connections are visible here; no node creation in a helper library.
     robot_prefix = namespace.rstrip('/')
     ecat_prefix = transport.rstrip('/')
@@ -52,14 +53,15 @@ def setup(context):
 
 def generate_launch_description():
     defaults = {
-        'config_dir': '', 'namespace': '/advrf/robot', 'ecat_namespace': '',
-        'robot_description_file': 'auto', 'control_mode': '',
+        'robot_config': '', 'controller_config': '', 'controllers_config': '', 'namespace': '/advrf/robot',
+        'robot_description_file': '', 'control_mode': '',
     }
     descriptions = {
-        'config_dir': 'Robot resource directory containing config/, urdf/ and rviz/',
+        'robot_config': 'Explicit YAML file path',
+        'controller_config': 'Explicit YAML file path',
+        'controllers_config': 'Explicit YAML file path',
         'namespace': 'Public robot namespace',
-        'ecat_namespace': 'EtherCAT topic namespace; defaults to <namespace>/ecat',
-        'robot_description_file': 'URDF/Xacro path, auto to find the model, or empty for no model',
+        'robot_description_file': 'URDF/Xacro file path; empty for no model',
         'control_mode': 'Motor profile name; empty uses the robot configuration',
     }
     return LaunchDescription([

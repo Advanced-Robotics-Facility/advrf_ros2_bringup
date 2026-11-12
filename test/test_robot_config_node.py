@@ -46,7 +46,8 @@ class ConfigNodeTest(unittest.TestCase):
                 self.assertNotIn('/robot_config_node/save', services)
                 self.assertEqual(path.read_bytes(), original)
                 self.assertEqual(
-                    load_robot(temporary, '/robot')['nodes']['joint_command_controller_node']['joint_gains'][0],
+                    load_robot(path, '/robot', controller_config=config / 'controller.yaml',
+                               controllers_config=config / 'advrf_controllers.yaml')['nodes']['joint_command_controller_node']['joint_gains'][0],
                     .009,
                 )
             finally:

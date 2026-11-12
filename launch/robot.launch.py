@@ -9,7 +9,7 @@ from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     directory = Path(__file__).resolve().parent
-    robot_arguments = ('config_dir', 'namespace', 'ecat_namespace',
+    robot_arguments = ('robot_config', 'controller_config', 'controllers_config', 'namespace',
                        'robot_description_file', 'control_mode')
 
     def include(filename, names, condition=None):
@@ -18,10 +18,13 @@ def generate_launch_description():
             launch_arguments={name: LaunchConfiguration(name) for name in names}.items())
 
     return LaunchDescription([
-        DeclareLaunchArgument('config_dir', description='Robot resource directory containing config/, urdf/ and rviz/'),
+        DeclareLaunchArgument('robot_config', description='Explicit YAML file path'),
+        DeclareLaunchArgument('controller_config', description='Explicit YAML file path'),
+        DeclareLaunchArgument('controllers_config', description='Explicit YAML file path'),
+        DeclareLaunchArgument('joint_control_config', default_value=''),
+        DeclareLaunchArgument('bridge_config', default_value=str(directory.parent / 'config/advrf_bridge.yaml')),
         DeclareLaunchArgument('namespace', default_value='/advrf/robot'),
-        DeclareLaunchArgument('ecat_namespace', default_value='', description='Default: <namespace>/ecat'),
-        DeclareLaunchArgument('robot_description_file', default_value='auto', description='URDF/Xacro path, auto, or empty for no model'),
+        DeclareLaunchArgument('robot_description_file', default_value='', description='URDF/Xacro file path; empty for no model'),
         DeclareLaunchArgument('control_mode', default_value='', description='Empty uses the robot motor profile'),
         DeclareLaunchArgument('use_panel', default_value='true', choices=['true', 'false']),
         DeclareLaunchArgument('use_joy', default_value='false', choices=['true', 'false']),
@@ -30,8 +33,9 @@ def generate_launch_description():
         DeclareLaunchArgument('use_rviz', default_value='false', choices=['true', 'false']),
         DeclareLaunchArgument('rviz_config', default_value='', description='Empty uses RViz defaults'),
         include('controllers.launch.py', robot_arguments),
-        include('inputs.launch.py', (*robot_arguments, 'use_panel', 'use_joy')),
-        include('hardware.launch.py', ('config_dir', 'namespace', 'ecat_namespace', 'active_tx_on_first_msg'),
+        include('inputs.launch.py', (*robot_arguments, 'joint_control_config', 'use_panel', 'use_joy')),
+        include('hardware.launch.py', ('bridge_config', 'namespace', 'active_tx_on_first_msg'),
                 IfCondition(LaunchConfiguration('start_bridge'))),
-        include('visualization.launch.py', (*robot_arguments, 'use_rviz', 'rviz_config')),
+        include('visualization.launch.py', ('namespace', 'robot_description_file',
+                                            'use_rviz', 'rviz_config')),
     ])

@@ -45,9 +45,15 @@ class CompositionTest(unittest.TestCase):
         }
         for name, document in documents.items():
             (config / name).write_text(yaml.safe_dump(document))
+        for path in config.glob('*.yaml'):
+            path.rename(self.root / ('custom_' + path.name))
         self.context = LaunchContext()
         self.context.launch_configurations.update(
-            config_dir=str(self.root), namespace='/custom/robot', ecat_namespace='/custom/wire',
+            bridge_config=str(self.root / 'custom_bridge.yaml'),
+            robot_config=str(self.root / 'custom_robot_config.yaml'),
+            controller_config=str(self.root / 'custom_controller.yaml'),
+            controllers_config=str(self.root / 'custom_advrf_controllers.yaml'),
+            joint_control_config=str(self.root / 'custom_joint_control.yaml'), namespace='/custom/robot',
             robot_description_file='', control_mode='', use_panel='true', use_joy='true',
             start_bridge='false', use_rviz='false', rviz_config='')
 
@@ -61,7 +67,7 @@ class CompositionTest(unittest.TestCase):
         for node in nodes:
             self.assertEqual(node['namespace'], '/custom/robot')
             if node['executable'] != 'robot_config_node':
-                self.assertIn(('rx/joint_states', '/custom/wire/rx/joint_states'), node['remappings'])
+                self.assertIn(('rx/joint_states', '/custom/robot/ecat/rx/joint_states'), node['remappings'])
         self.assertEqual(nodes[-1]['package'], 'advrf_ros2_bringup')
         self.assertEqual(nodes[0]['parameters'][0]['motor_ids'], [7])
 
@@ -79,7 +85,7 @@ class CompositionTest(unittest.TestCase):
         self.assertEqual(manual['parameters'][0]['upper_positions'], [1.])
 
     def test_disabled_inputs_need_no_configuration(self):
-        self.context.launch_configurations.update(config_dir='/does/not/exist', use_panel='false', use_joy='false')
+        self.context.launch_configurations.update(robot_config='/does/not/exist', use_panel='false', use_joy='false')
         self.assertEqual(module('inputs').setup(self.context), [])
 
     def test_hardware_paths_and_namespace(self):
@@ -87,13 +93,13 @@ class CompositionTest(unittest.TestCase):
         self.context.environment['EC_CFG'] = '/chosen/ec_cfg.yaml'
         with patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs):
             node, = launch.setup(self.context)
-        self.assertEqual(node['namespace'], '/custom/wire')
+        self.assertEqual(node['namespace'], '/custom/robot/ecat')
         self.assertNotIn('additional_env', node)
-        self.assertEqual(node['parameters'], [str(self.root / 'config/advrf_bridge.yaml')])
-        self.context.launch_configurations['ecat_namespace'] = ''
+        self.assertEqual(node['parameters'], [str(self.root / 'custom_bridge.yaml')])
+        self.context.launch_configurations['namespace'] = '/'
         with patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs):
             node, = launch.setup(self.context)
-        self.assertEqual(node['namespace'], '/custom/robot/ecat')
+        self.assertEqual(node['namespace'], '/ecat')
 
     def test_hardware_auto_activation_override(self):
         launch = module('hardware')

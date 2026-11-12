@@ -37,24 +37,19 @@ def robot_description(path):
     return path.read_text()
 
 
-def load_robot(config_dir, namespace, urdf='', control_mode=''):
-    root = Path(config_dir).expanduser().resolve(strict=True)
-    config = root / 'config'
-
-    if (config / 'controller.yaml').is_file():
-        document = {}
-        controller = read_yaml(config / 'controller.yaml')['controller']
+def load_robot(robot_config, namespace, urdf='', control_mode='', *,
+               controller_config, controllers_config):
+    configuration_file = Path(robot_config).expanduser().resolve(strict=True)
+    document = read_yaml(controller_config)
+    if 'controller' in document:
+        controller = document['controller']
         name = controller['name']
+        document = {}
     else:
-        document = read_yaml(config / 'moveit_controllers.yaml')
         manager = document['moveit_simple_controller_manager']
         names = manager['controller_names']
-
         if len(names) != 1:
-            raise ValueError(
-                'ADVRF currently requires one shared FollowJointTrajectory controller'
-            )
-
+            raise ValueError('ADVRF currently requires one shared FollowJointTrajectory controller')
         name = names[0]
         controller = manager[name]
 
@@ -76,21 +71,9 @@ def load_robot(config_dir, namespace, urdf='', control_mode=''):
     full_controller = name if name.startswith('/') else prefix + '/' + name
     full_action = full_controller.rstrip('/') + '/' + action.strip('/')
 
-    if urdf == 'auto':
-        candidates = sorted((root / 'urdf').glob('*.urdf'))
-        candidates = [p for p in candidates if '.' not in p.stem]
-
-        if len(candidates) > 1:
-            raise ValueError(
-                'Multiple URDF files; pass robot_description_file explicitly'
-            )
-
-        urdf = str(candidates[0]) if candidates else ''
-
     description = robot_description(urdf)
     from .central_config import load_central, adapt_central
 
-    configuration_file = config / 'robot_config.yaml'
     central = load_central(configuration_file)
     adapted = adapt_central(central, joints, description)
     limits = adapted['limits']
@@ -113,7 +96,7 @@ def load_robot(config_dir, namespace, urdf='', control_mode=''):
     except KeyError as error:
         raise ValueError(f'Missing hardware mapping: {error}') from error
 
-    settings = config / 'advrf_controllers.yaml'
+    settings = controllers_config
     nodes = {
         node: node_parameters(settings, node, namespace)
         for node in (
@@ -180,7 +163,6 @@ def load_robot(config_dir, namespace, urdf='', control_mode=''):
     adapted['parameters']['control_mode'] = mode
 
     return {
-        'root': root,
         'nodes': nodes,
         'limits': limits,
         'description': description,

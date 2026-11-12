@@ -11,19 +11,20 @@ def setup(context):
         return LaunchConfiguration(name).perform(context)
 
     namespace = arg('namespace')
-    transport = arg('ecat_namespace') or namespace.rstrip('/') + '/ecat'
+    transport = namespace.rstrip('/') + '/ecat'
     actions = []
     if arg('use_panel') == 'true':
         actions.append(ExecuteProcess(cmd=[
             'ros2', 'run', 'rqt_gui', 'rqt_gui', '--force-discover', '--standalone',
             'advrf_ros2_motors_controller.motor_panel.MotorPanel', '--args',
             '--parameter-node', namespace.rstrip('/') + '/joint_goal_manager_node',
-            '--namespace', namespace, '--ecat-namespace', transport,
+            '--namespace', namespace,
         ], output='screen'))
     if arg('use_joy') == 'true':
-        robot = load_robot(arg('config_dir'), namespace,
-                           arg('robot_description_file'), arg('control_mode'))
-        config = robot['root'] / 'config/joint_control.yaml'
+        robot = load_robot(arg('robot_config'), namespace, arg('robot_description_file'), arg('control_mode'),
+                           controller_config=arg('controller_config'),
+                           controllers_config=arg('controllers_config'))
+        config = arg('joint_control_config')
         manual = node_parameters(config, 'joint_control_node', namespace)
         manual.update(node_parameters(config, 'manual_joint_controller_node', namespace))
         joystick = node_parameters(config, 'joy_control_node', namespace)
@@ -59,10 +60,12 @@ def setup(context):
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument('config_dir', description='Robot resource directory containing config/'),
+        DeclareLaunchArgument('robot_config', default_value='', description='Explicit YAML file path'),
+        DeclareLaunchArgument('controller_config', default_value='', description='Explicit YAML file path'),
+        DeclareLaunchArgument('controllers_config', default_value='', description='Explicit YAML file path'),
+        DeclareLaunchArgument('joint_control_config', default_value='', description='Explicit YAML file path'),
         DeclareLaunchArgument('namespace', default_value='/advrf/robot'),
-        DeclareLaunchArgument('ecat_namespace', default_value=''),
-        DeclareLaunchArgument('robot_description_file', default_value='auto'),
+        DeclareLaunchArgument('robot_description_file', default_value=''),
         DeclareLaunchArgument('control_mode', default_value=''),
         DeclareLaunchArgument('use_panel', default_value='true', choices=['true', 'false']),
         DeclareLaunchArgument('use_joy', default_value='false', choices=['true', 'false']),

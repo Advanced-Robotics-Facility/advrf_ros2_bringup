@@ -52,7 +52,9 @@ class RobotConfigTest(unittest.TestCase):
         (self.root / 'config' / name).write_text(yaml.safe_dump(value))
 
     def load(self, **kwargs):
-        return load_robot(self.root, '/robot', **kwargs)
+        return load_robot(self.root / 'config/robot_config.yaml', '/robot',
+                          controller_config=kwargs.pop('controller_config', self.root / 'config/moveit_controllers.yaml'),
+                          controllers_config=self.root / 'config/advrf_controllers.yaml', **kwargs)
 
     def test_without_urdf_alignment_and_gain_permutation(self):
         robot = self.load()
@@ -66,9 +68,21 @@ class RobotConfigTest(unittest.TestCase):
         (self.root / 'config/moveit_controllers.yaml').unlink()
         self.write('controller.yaml', {'controller': {
             'name': 'arm', 'action_ns': 'follow_joint_trajectory', 'joints': ['a', 'b']}})
-        robot = self.load()
+        robot = self.load(controller_config=self.root / 'config/controller.yaml')
         self.assertEqual(robot['action_name'], '/robot/arm/follow_joint_trajectory')
         self.assertEqual(robot['moveit'], {})
+
+    def test_explicit_files_in_unrelated_locations(self):
+        paths = []
+        for index, filename in enumerate(('robot_config.yaml', 'moveit_controllers.yaml', 'advrf_controllers.yaml')):
+            directory = self.root / str(index)
+            directory.mkdir()
+            target = directory / 'custom.yaml'
+            (self.root / 'config' / filename).rename(target)
+            paths.append(target)
+        robot = load_robot(paths[0], '/robot', controller_config=paths[1], controllers_config=paths[2])
+        self.assertEqual(robot['nodes']['joint_command_controller_node']['motor_ids'], [1, 7])
+        self.assertEqual(robot['configuration_file'], str(paths[0]))
 
     def test_impedance_preserves_all_five_values(self):
         robot = self.load(control_mode='impedance')

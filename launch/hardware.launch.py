@@ -3,13 +3,12 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from pathlib import Path
 
 
 def setup(context):
-    config = Path(LaunchConfiguration('config_dir').perform(context)) / 'config/advrf_bridge.yaml'
+    config = LaunchConfiguration('bridge_config').perform(context)
     namespace = LaunchConfiguration('namespace').perform(context)
-    transport = LaunchConfiguration('ecat_namespace').perform(context) or namespace.rstrip('/') + '/ecat'
+    transport = namespace.rstrip('/') + '/ecat'
     parameters = [str(config)]
     automatic = LaunchConfiguration('active_tx_on_first_msg', default='').perform(context)
     if automatic:
@@ -22,10 +21,9 @@ def setup(context):
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument('config_dir', description='Robot resource directory containing config/advrf_bridge.yaml'),
+        DeclareLaunchArgument('bridge_config', description='ROS bridge parameter YAML file'),
         DeclareLaunchArgument('active_tx_on_first_msg', default_value='', choices=['', 'true', 'false'],
                               description='Override the bridge automatic TX activation parameter'),
         DeclareLaunchArgument('namespace', default_value='/advrf/robot'),
-        DeclareLaunchArgument('ecat_namespace', default_value=''),
         OpaqueFunction(function=setup),
     ])
