@@ -122,6 +122,83 @@ class CompositionTest(unittest.TestCase):
 
         self.assertNotIn('additional_env', node)
 
+    def test_hardware_motor_profile_override(self):
+        launch = module('hardware')
+        control_dir = self.root / 'robot_control'
+        control_dir.mkdir()
+        profile = control_dir / 'position.yaml'
+        profile.write_text(yaml.safe_dump({'motor_a': {'control_mode': 59, 'gains': [1, 2, 3, 4, 5]}}))
+        control = {'motor': {'config_path': '${PWD}/original.yaml', 'id': [7]},
+                   'pump': {'config_path': '${PROFILE_ROOT}/pump.yaml'},
+                   'trajectory': {'type': 'none'}}
+        (control_dir / 'control.yaml').write_text(yaml.safe_dump(control))
+        source = self.root / 'ec_cfg.yaml'
+        original = {'network': {'protocol': 'iddp'}, 'general': {'period_ms': 1},
+                    'robot': {'robot_control_path': '${PWD}/robot_control/control.yaml',
+                              'robot_id_map_path': '${PWD}/ids.yaml'}}
+        source.write_text(yaml.safe_dump(original))
+        before = {p: p.read_bytes() for p in self.root.rglob('*.yaml')}
+        self.context.environment.update(EC_CFG=str(source), PROFILE_ROOT=str(self.root))
+        self.context.launch_configurations['motor_start_config'] = 'position.yaml'
+        with patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs), \
+                patch.object(launch, 'OnShutdown', side_effect=lambda **kwargs: kwargs), \
+                patch.object(launch, 'RegisterEventHandler', side_effect=lambda handler: handler):
+            cleanup, node = launch.setup(self.context)
+        target = Path(node['additional_env']['EC_CFG'])
+        try:
+            result = yaml.safe_load(target.read_text())
+            self.assertEqual(result['network'], original['network'])
+            self.assertEqual(result['general'], original['general'])
+            self.assertEqual(result['robot']['robot_id_map_path'], str(self.root / 'ids.yaml'))
+            copied_control = yaml.safe_load(Path(result['robot']['robot_control_path']).read_text())
+            self.assertEqual(copied_control['motor']['config_path'], str(profile))
+            self.assertEqual(copied_control['motor']['id'], [7])
+            self.assertEqual(copied_control['pump']['config_path'], str(self.root / 'pump.yaml'))
+            self.assertEqual(self.context.environment['EC_CFG'], str(source))
+            for path, content in before.items():
+                self.assertEqual(path.read_bytes(), content)
+        finally:
+            for action in cleanup['on_shutdown']:
+                action.execute(self.context)
+        self.assertFalse(target.exists())
+
+    def test_hardware_override_requires_environment(self):
+        self.context.environment.clear()
+        self.context.launch_configurations['motor_start_config'] = 'position.yaml'
+        with self.assertRaisesRegex(ValueError, 'requires EC_CFG'):
+            module('hardware').setup(self.context)
+
+    def test_gravity_config_selects_matching_ids_and_gains(self):
+        launch = module('gravity_compensation')
+        profile = self.root / 'gravity.yaml'
+        profile.write_text(yaml.safe_dump({'/**/gravity_compensation': {
+            'ros__parameters': {'joints': ['c', 'a']}}}))
+        self.context.launch_configurations.update(gravity_config=str(profile), gain_ramp_duration='3.0')
+        robot = {'description': '<robot/>', 'limits': {'joints': ['a', 'b', 'c']},
+                 'nodes': {'joint_command_controller_node': {
+                     'motor_ids': [7, 8, 9], 'joint_gains': list(range(15))}}}
+        with patch.object(launch, 'load_robot', return_value=robot), \
+                patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs):
+            node, = launch.setup(self.context)
+        parameters = node['parameters'][0]
+        self.assertEqual(parameters['joints'], ['c', 'a'])
+        self.assertEqual(parameters['motor_ids'], [9, 7])
+        self.assertEqual(parameters['joint_gains'], list(range(10, 15)) + list(range(5)))
+        self.assertEqual(node['namespace'], '/custom/robot')
+        self.assertEqual(node['remappings'][1][1], '/custom/robot/ecat/tx/motors')
+        for selection in ([], 'a,b', ['a', 'a'], ['unknown'], [42]):
+            profile.write_text(yaml.safe_dump({'/**/gravity_compensation': {
+                'ros__parameters': {'joints': selection}}}))
+            with self.subTest(selection=selection), \
+                    patch.object(launch, 'load_robot', return_value=robot), \
+                    self.assertRaises(ValueError):
+                launch.setup(self.context)
+        self.context.launch_configurations['gravity_config'] = ''
+        with patch.object(launch, 'load_robot', return_value=robot), \
+                patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs):
+            node, = launch.setup(self.context)
+        self.assertEqual(node['parameters'][0]['joints'], ['a', 'b', 'c'])
+
     def test_visualization_without_model(self):
         launch = module('visualization')
         self.assertEqual(launch.setup(self.context), [])

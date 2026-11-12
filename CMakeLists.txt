@@ -15,6 +15,7 @@ if(BUILD_TESTING)
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO)
   ament_add_test(test_launch_composition
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test/test_launch_composition.py"
+    APPEND_ENV "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}"
     ENV "ROS_LOG_DIR=/tmp/advrf_bringup_test_logs"
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO)
   foreach(config_test test_robot_config test_central_config test_robot_config_node)
