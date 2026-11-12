@@ -27,10 +27,18 @@ class CompositionTest(unittest.TestCase):
         config.mkdir()
         documents = {
             'controller.yaml': {'controller': {'name': 'arm', 'joints': ['a']}},
-            'joint_limits.yaml': {'joint_limits': {'a': {'min_position': -1., 'max_position': 1.,
-                                                       'max_velocity': 2., 'max_acceleration': 3.}}},
-            'advrf_hardware.yaml': {'joint_map': {7: 'a'}, 'profiles': {
-                'position': {'a': {'gains': [2., 0., 1., 0., 0.]}}}},
+            'robot_config.yaml': {'/**/robot_config_node': {'ros__parameters': {
+                'control_mode': 'position',
+                'motors': {'a': {
+                    'id': 7,
+                    'limits': {'position_lower': -1., 'position_upper': 1.,
+                               'max_velocity': 2., 'max_acceleration': 3.},
+                    'profiles': {'position': {
+                        'gain_0': 2., 'gain_1': 0., 'gain_2': 1.,
+                        'gain_3': 0., 'gain_4': 0.,
+                    }},
+                }},
+            }}},
             'advrf_controllers.yaml': {},
             'joint_control.yaml': {},
             'advrf_bridge.yaml': {'/**': {'ros__parameters': {}}},
@@ -48,10 +56,13 @@ class CompositionTest(unittest.TestCase):
         with patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs):
             nodes = launch.setup(self.context)
         self.assertEqual([node['executable'] for node in nodes], [
-            'converter_tx_motor_node', 'joint_trajectory_controller_node', 'joint_goal_manager_node'])
+            'converter_tx_motor_node', 'joint_trajectory_controller_node', 'joint_goal_manager_node',
+            'robot_config_node'])
         for node in nodes:
             self.assertEqual(node['namespace'], '/custom/robot')
-            self.assertIn(('rx/joint_states', '/custom/wire/rx/joint_states'), node['remappings'])
+            if node['executable'] != 'robot_config_node':
+                self.assertIn(('rx/joint_states', '/custom/wire/rx/joint_states'), node['remappings'])
+        self.assertEqual(nodes[-1]['package'], 'advrf_ros2_bringup')
         self.assertEqual(nodes[0]['parameters'][0]['motor_ids'], [7])
 
     def test_panel_and_joystick_share_public_interfaces(self):
@@ -96,18 +107,14 @@ class CompositionTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'active_tx_on_first_msg'):
             launch.setup(self.context)
 
-    def test_hardware_warns_without_ec_cfg(self):
+    def test_hardware_leaves_client_configuration_to_bridge(self):
         launch = module('hardware')
-        for value in [None, '']:
-            if value is None:
-                self.context.environment.pop('EC_CFG', None)
-            else:
-                self.context.environment['EC_CFG'] = value
-            with patch.object(launch, 'get_logger') as logger, \
-                    patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs):
-                node, = launch.setup(self.context)
-            logger.return_value.warning.assert_called_once_with('EC_CFG not set')
-            self.assertNotIn('additional_env', node)
+        self.context.environment.clear()
+
+        with patch.object(launch, 'Node', side_effect=lambda **kwargs: kwargs):
+            node, = launch.setup(self.context)
+
+        self.assertNotIn('additional_env', node)
 
     def test_visualization_without_model(self):
         launch = module('visualization')

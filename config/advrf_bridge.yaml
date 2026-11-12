@@ -1,0 +1,17 @@
+# ROS bridge startup parameters. EtherCAT client settings are supplied via EC_CFG.
+/**/bridge_ecat_client_node:
+  ros__parameters:
+    period_ms: 4
+    active_tx_on_first_msg: false
+    command_timeout_ms: 500
+
+    qos:
+      state:
+        depth: 10
+        reliability: reliable
+        durability: volatile
+
+      command:
+        depth: 1
+        reliability: best_effort
+        durability: volatile

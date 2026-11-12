@@ -1,0 +1,17 @@
+# Runtime settings only; IDs, gains and limits come from robot_config.yaml.
+/**/joint_command_controller_node:
+  ros__parameters:
+    publish_rate: 250.0
+
+/**/joint_trajectory_controller_node:
+  ros__parameters:
+    update_rate: 250.0
+    feedback_timeout: 0.2
+    path_tolerance: 0.1
+    goal_tolerance: 0.02
+    goal_time_tolerance: 2.0
+
+/**/joint_go_to_node:
+  ros__parameters:
+    feedback_timeout: 0.2
+    response_timeout: 5.0

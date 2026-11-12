@@ -4,15 +4,12 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from pathlib import Path
-from launch.logging import get_logger
 
 
 def setup(context):
     config = Path(LaunchConfiguration('config_dir').perform(context)) / 'config/advrf_bridge.yaml'
     namespace = LaunchConfiguration('namespace').perform(context)
     transport = LaunchConfiguration('ecat_namespace').perform(context) or namespace.rstrip('/') + '/ecat'
-    if not context.environment.get('EC_CFG', ''):
-        get_logger('advrf_ros2_bringup').warning('EC_CFG not set')
     parameters = [str(config)]
     automatic = LaunchConfiguration('active_tx_on_first_msg', default='').perform(context)
     if automatic:

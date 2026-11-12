@@ -3,7 +3,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from advrf_ros2_motors_controller.robot_config import load_robot, node_parameters
+from advrf_ros2_bringup.robot_config import load_robot, node_parameters
 
 
 def setup(context):

@@ -1,0 +1,92 @@
+# Example IDs, gains and limits: replace with the robot configuration.
+/**/robot_config_node:
+  ros__parameters:
+    control_mode: position
+    planning:
+      default_velocity_scaling_factor: 0.1
+      default_acceleration_scaling_factor: 0.1
+    motors:
+      shoulder_pan_joint:
+        id: 1
+        limits:
+          position_lower: -1.0
+          position_upper: 1.0
+          max_velocity: 1.0
+          max_acceleration: 5.0
+        profiles:
+          position:
+            gain_0: 0.0
+            gain_1: 0.0
+            gain_2: 0.0
+            gain_3: 0.0
+            gain_4: 0.0
+      shoulder_lift_joint:
+        id: 2
+        limits:
+          position_lower: -1.0
+          position_upper: 1.0
+          max_velocity: 1.0
+          max_acceleration: 5.0
+        profiles:
+          position:
+            gain_0: 0.0
+            gain_1: 0.0
+            gain_2: 0.0
+            gain_3: 0.0
+            gain_4: 0.0
+      elbow_joint:
+        id: 3
+        limits:
+          position_lower: -1.0
+          position_upper: 1.0
+          max_velocity: 1.0
+          max_acceleration: 5.0
+        profiles:
+          position:
+            gain_0: 0.0
+            gain_1: 0.0
+            gain_2: 0.0
+            gain_3: 0.0
+            gain_4: 0.0
+      wrist_1_joint:
+        id: 4
+        limits:
+          position_lower: -1.0
+          position_upper: 1.0
+          max_velocity: 1.0
+          max_acceleration: 5.0
+        profiles:
+          position:
+            gain_0: 0.0
+            gain_1: 0.0
+            gain_2: 0.0
+            gain_3: 0.0
+            gain_4: 0.0
+      wrist_2_joint:
+        id: 5
+        limits:
+          position_lower: -1.0
+          position_upper: 1.0
+          max_velocity: 1.0
+          max_acceleration: 5.0
+        profiles:
+          position:
+            gain_0: 0.0
+            gain_1: 0.0
+            gain_2: 0.0
+            gain_3: 0.0
+            gain_4: 0.0
+      wrist_3_joint:
+        id: 6
+        limits:
+          position_lower: -1.0
+          position_upper: 1.0
+          max_velocity: 1.0
+          max_acceleration: 5.0
+        profiles:
+          position:
+            gain_0: 0.0
+            gain_1: 0.0
+            gain_2: 0.0
+            gain_3: 0.0
+            gain_4: 0.0

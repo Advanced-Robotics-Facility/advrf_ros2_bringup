@@ -7,7 +7,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from advrf_ros2_motors_controller.robot_config import load_robot
+from advrf_ros2_bringup.robot_config import load_robot
 
 
 def setup(context):
@@ -41,13 +41,12 @@ def setup(context):
              namespace=namespace, output='screen', remappings=remappings,
              parameters=[robot['nodes']['joint_go_to_node']]),
     ]
-    if robot['configuration_parameters'] is not None:
-        actions.append(Node(package='advrf_ros2_motors_controller', executable='robot_config_node',
-                            namespace=namespace, output='screen', parameters=[{
-                                **robot['configuration_parameters'],
-                                'configuration_file': robot['configuration_file'],
-                                'robot_description': robot['description'],
-                            }]))
+    actions.append(Node(package='advrf_ros2_bringup', executable='robot_config_node',
+                        namespace=namespace, output='screen', parameters=[{
+                            **robot['configuration_parameters'],
+                            'configuration_file': robot['configuration_file'],
+                            'robot_description': robot['description'],
+                        }]))
     return actions
 
 
