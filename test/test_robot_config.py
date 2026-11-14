@@ -56,12 +56,12 @@ class RobotConfigTest(unittest.TestCase):
                           controller_config=kwargs.pop('controller_config', self.root / 'config/moveit_controllers.yaml'),
                           controllers_config=self.root / 'config/advrf_controllers.yaml', **kwargs)
 
-    def test_without_urdf_alignment_and_gain_permutation(self):
+    def test_without_urdf_alignment_and_position_gains_unchanged(self):
         robot = self.load()
         cmd = robot['nodes']['joint_command_controller_node']
         self.assertEqual(cmd['joints'], ['a', 'b'])
         self.assertEqual(cmd['motor_ids'], [1, 7])
-        self.assertEqual(cmd['joint_gains'], [2., 4., 0., 0., 3., 5., 7., 0., 0., 6.])
+        self.assertEqual(cmd['joint_gains'], [2., 3., 4., 0., 0., 5., 6., 7., 0., 0.])
         self.assertEqual(robot['action_name'], '/robot/arm/follow_joint_trajectory')
 
     def test_standalone_controller_without_moveit_file(self):

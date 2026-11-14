@@ -126,21 +126,16 @@ def load_robot(robot_config, namespace, urdf='', control_mode='', *,
 
         selected.extend(values)
 
+    # Gains are sent in profile order ([kp, ki, kd, 0, 0] for position/velocity),
+    # which is the firmware slot order; no permutation is applied.
     command = selected[:]
-    # Preserve the existing native bridge position/velocity wire permutation.
 
     if mode in ('position', 'velocity'):
-        command = []
-
         for i in range(0, len(selected), 5):
-            kp, ki, kd, unused3, unused4 = selected[i:i + 5]
-
-            if unused3 != 0 or unused4 != 0:
+            if selected[i + 3] != 0 or selected[i + 4] != 0:
                 raise ValueError(
                     f'{mode}: native position/velocity profile slots 4/5 must be zero'
                 )
-
-            command.extend([kp, kd, 0.0, 0.0, ki])
 
     for node, values in nodes.items():
         for key, expected in limits.items():
